@@ -1,6 +1,7 @@
 name: rwanda_random_forest
 
-python_env: pyenv.yaml
+docker_env:
+  image: ghcr.io/dhis2-chap/python_base_image:master
 
 entry_points:
   train:
