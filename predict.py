@@ -1,30 +1,67 @@
 import argparse
 import joblib
 import pandas as pd
+import numpy as np
+pd.set_option("display.max_columns", None)
+from scipy.stats import randint, uniform
+
+from sklearn.model_selection import cross_val_score, KFold
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score, make_scorer
+from sklearn.model_selection import RandomizedSearchCV, GroupKFold, cross_val_score
+
+# Model
+from sklearn.ensemble import RandomForestRegressor
 
 # this is currently just copied from the rwanda_SARIMAX model, needs to be altered
 
 def predict(model_fn, historic_data_fn, future_climatedata_fn, predictions_fn):
     # get all unique districts from historic data
-    df = pd.read_csv(future_climatedata_fn)
-    districts = pd.read_csv(historic_data_fn)['location'].unique()
+    future_df = pd.read_csv(future_climatedata_fn)
+    historic_df = pd.read_csv(historic_data_fn)
+    historic_df["malaria_incidence"] = historic_df["disease_cases"]/historic_df["population"] * 10000 #cases per 10000 
+    
 
-    final_predictions_df = pd.DataFrame()
+    full_df = pd.concat([historic_df, future_df], ignore_index=True)
 
-    for district in districts:
-        model_file_name = model_fn + "_" + district + ".bin"
-        model = joblib.load(model_file_name)
-        future_data_for_district = df[df['location'] == district]
-        print(f"Loaded model for district {district} from {model_file_name}")
-        predictions = model.forecast(steps=len(future_data_for_district), exog=future_data_for_district[['rainfall', 'mean_temperature']])
-        samples_0 = predictions
-        #predictions = pd.Series(predictions, index=test_data.index)
+    full_df["time_period"] = pd.to_datetime(full_df["time_period"], format="%Y-%m")
 
-        # put future data for district into final_predictions_df with a new column 'sample_0' containing the predictions
-        future_data_for_district['sample_0'] = samples_0
-        final_predictions_df = pd.concat([final_predictions_df, future_data_for_district])
+    future_df["time_period"] = pd.to_datetime(future_df["time_period"], format="%Y-%m")
 
-    final_predictions_df.to_csv(predictions_fn, index=False)
+    # Find the earliest future timepoint
+    earliest_time = future_df["time_period"].min()
+
+    full_df = full_df.sort_values(["location", "time_period"])
+    for var in ["mean_temperature", "rainfall", "disease_cases", "malaria_incidence"]:
+        for lag in [1, 2, 3]:  # 1-3 months lag
+            full_df[f"{var}_lag{lag}"] = full_df.groupby("location")[var].shift(lag)
+
+    # Log-transform incidence (avoid skew)
+    full_df["malaria_incidence_log"] = np.log1p(full_df["malaria_incidence"])
+
+    df_newer = full_df[full_df["time_period"] >= earliest_time] # only keeps the future timepoints, but now with lagged variables from historic data
+
+    # Define features
+    features = [
+        "rainfall","mean_temperature",
+        "rainfall_lag1", "rainfall_lag2", "rainfall_lag3",
+        "mean_temperature_lag1","mean_temperature_lag2","mean_temperature_lag3",
+        "malaria_incidence_lag1","malaria_incidence_lag2","malaria_incidence_lag3"
+    ]
+
+    X_new = df_newer[features]
+
+    rf_model = joblib.load(model_fn)
+
+    y_pred_log = rf_model.predict(X_new) #this is the predicted malaria incidence on the log scale
+
+    y_pred = np.expm1(y_pred_log)   # this is the predicted malaria incidence per 10000
+
+    df_newer["malaria_incidence"] = y_pred
+
+    df_newer["sample_0"] = df_newer["malaria_incidence"]*df_newer["population"]/10000 #for samples in casenumbers for each district
+
+    #Save predictions to file
+    df_newer.to_csv(predictions_fn, index=False)
 
 
 if __name__ == "__main__":

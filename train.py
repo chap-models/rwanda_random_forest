@@ -16,10 +16,12 @@ from sklearn.ensemble import RandomForestRegressor
 def train(csv_fn, model_fn):
     df = pd.read_csv(csv_fn)
 
-    df["malaria_incidence"] = df["cases"]/df["population"] * 10000 #cases per 10000 
+    df["malaria_incidence"] = df["disease_cases"]/df["population"] * 10000 #cases per 10000
+
+    df["time_period"] = pd.to_datetime(df["time_period"], format="%Y-%m") 
     
-    df = df.sort_values(["location", "date"])
-    for var in ["mean_temperature", "rainfall", "cases", "malaria_incidence"]:
+    df = df.sort_values(["location", "time_period"])
+    for var in ["mean_temperature", "rainfall", "disease_cases", "malaria_incidence"]:
         for lag in [1, 2, 3]:  # 1-3 months lag
             df[f"{var}_lag{lag}"] = df.groupby("location")[var].shift(lag)
 
@@ -87,25 +89,11 @@ def train(csv_fn, model_fn):
     # Fit final model on all data for downstream use
     best_rf.fit(X, y)
 
+    joblib.dump(best_rf, model_fn)
+
     #_--------------------------------------
     #Now have the best model fit with tuned hyperparameters, not quite sure how to predict from here
     #Are all the regions trained together? Is the location used to split nodes in the trees?
-
-
-
-    # split df into one df per distinct location
-    models = {}
-    for district in df['location'].unique():
-        print("Training for district: ", district)
-        district_df = df[df['location'] == district]
-        model = train_for_district(district_df)
-        models[district] = model
-    
-        model_file_name = "model_" + district + ".bin"
-        joblib.dump(model, model_file_name)
-    
-    joblib.dump(model, model_fn)
-
 
 
 if __name__ == "__main__":
