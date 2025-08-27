@@ -12,25 +12,22 @@ from sklearn.model_selection import RandomizedSearchCV, GroupKFold, cross_val_sc
 # Model
 from sklearn.ensemble import RandomForestRegressor
 
-# this is currently just copied from the rwanda_SARIMAX model, needs to be altered
-
 def predict(model_fn, historic_data_fn, future_climatedata_fn, predictions_fn):
     # get all unique districts from historic data
     future_df = pd.read_csv(future_climatedata_fn)
     historic_df = pd.read_csv(historic_data_fn)
     historic_df["malaria_incidence"] = historic_df["disease_cases"]/historic_df["population"] * 10000 #cases per 10000 
-    
 
     full_df = pd.concat([historic_df, future_df], ignore_index=True)
 
-    full_df["time_period"] = pd.to_datetime(full_df["time_period"], format="%Y-%m")
+    full_df["date"] = pd.to_datetime(full_df["time_period"], format="%Y-%m")
 
-    future_df["time_period"] = pd.to_datetime(future_df["time_period"], format="%Y-%m")
+    future_df["date"] = pd.to_datetime(future_df["time_period"], format="%Y-%m")
 
     # Find the earliest future timepoint
-    earliest_time = future_df["time_period"].min()
+    earliest_time = future_df["date"].min()
 
-    full_df = full_df.sort_values(["location", "time_period"])
+    full_df = full_df.sort_values(["location", "date"])
     for var in ["mean_temperature", "rainfall", "disease_cases", "malaria_incidence"]:
         for lag in [1, 2, 3]:  # 1-3 months lag
             full_df[f"{var}_lag{lag}"] = full_df.groupby("location")[var].shift(lag)
@@ -38,7 +35,7 @@ def predict(model_fn, historic_data_fn, future_climatedata_fn, predictions_fn):
     # Log-transform incidence (avoid skew)
     full_df["malaria_incidence_log"] = np.log1p(full_df["malaria_incidence"])
 
-    df_newer = full_df[full_df["time_period"] >= earliest_time] # only keeps the future timepoints, but now with lagged variables from historic data
+    df_newer = full_df[full_df["date"] >= earliest_time] # only keeps the future timepoints, but now with lagged variables from historic data
 
     # Define features
     features = [
@@ -62,6 +59,8 @@ def predict(model_fn, historic_data_fn, future_climatedata_fn, predictions_fn):
 
     #Save predictions to file
     df_newer.to_csv(predictions_fn, index=False)
+
+    #the predictions are now further ahead than the lags, also no rolling window prediction yet
 
 
 if __name__ == "__main__":
