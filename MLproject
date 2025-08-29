@@ -1,18 +1,20 @@
 name: rwanda_random_forest
 
-docker_env:
-  image: ghcr.io/dhis2-chap/python_base_image:master
+#docker_env:
+#  image: ghcr.io/dhis2-chap/python_base_image:master
+
+python_env: pyenv.yaml
 
 entry_points:
   train:
     parameters:
-      train_data: path
+      train_data: str
       model: str
     command: "python train.py {train_data} {model}"
   predict:
     parameters:
-      historic_data: path
-      future_data: path
+      historic_data: str
+      future_data: str
       model: str
-      out_file: path
+      out_file: str
     command: "python predict.py {model} {historic_data} {future_data} {out_file}"
