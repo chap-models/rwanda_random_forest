@@ -21,6 +21,15 @@ meta_data:
     HISP Centre, University of Oslo.
     https://dhis2-chap.github.io/chap-core/external_models/overview_of_supported_models.html
 
+target: disease_cases
+required_covariates: 
+  - rainfall
+  - mean_temperature
+  - population
+allow_free_additional_continuous_covariates: False
+supported_period_type: month
+user_options: {}
+
 entry_points:
   train:
     parameters:
