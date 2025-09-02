@@ -64,7 +64,8 @@ def train(csv_fn, model_fn):
     }
 
     # GroupKFold prevents training & testing on the same location
-    n_splits = min(len(groups), 5)  # ensure n_splits <= number of unique groups
+    n_unique_groups = len(pd.unique(groups))
+    n_splits = min(n_unique_groups, 5)  # ensure n_splits <= number of unique groups
     cv = GroupKFold(n_splits=n_splits)
 
     search = RandomizedSearchCV(
