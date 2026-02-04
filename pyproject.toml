@@ -1,0 +1,10 @@
+[project]
+name = "rwanda_random_forest"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "pandas",
+    "joblib",
+    "scipy",
+    "scikit-learn",
+]

@@ -3,7 +3,7 @@ name: rwanda_random_forest
 #docker_env:
 #  image: ghcr.io/dhis2-chap/python_base_image:master
 
-python_env: pyenv.yaml
+uv_env: pyproject.toml
 
 entry_points:
   train:
