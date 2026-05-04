@@ -10,5 +10,5 @@ dependencies:
   - pandas
   - joblib
   - scipy
-  - sklearn
+  - scikit-learn
 
