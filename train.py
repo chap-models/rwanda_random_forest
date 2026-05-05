@@ -63,8 +63,21 @@ def train(csv_fn, model_fn):
         "bootstrap": [True]                           # RF default & usually best
     }
 
-    # GroupKFold prevents training & testing on the same location
-    cv = GroupKFold(n_splits=5)
+    # GroupKFold prevents training & testing on the same location.
+    # Cap n_splits to the number of available locations - real Rwanda data has
+    # plenty, but smaller eval datasets (e.g. chap-core's laos_subset, 3 locations)
+    # would otherwise crash CV setup. Anything with fewer than 2 usable locations
+    # (single-location inputs, or data where dropna leaves only one) can't run
+    # GroupKFold at all - raise an actionable error rather than letting sklearn's
+    # opaque "n_splits=1" message surface.
+    n_groups = df_ml["location"].nunique()
+    if n_groups < 2:
+        raise ValueError(
+            f"rwanda_random_forest needs at least 2 locations for GroupKFold-based "
+            f"hyperparameter search; got {n_groups} after dropna. Provide multi-location "
+            f"training data, or remove the GroupKFold/RandomizedSearchCV block."
+        )
+    cv = GroupKFold(n_splits=min(5, n_groups))
 
     search = RandomizedSearchCV(
         estimator=rf,
